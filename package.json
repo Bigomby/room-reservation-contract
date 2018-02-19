@@ -1,0 +1,40 @@
+{
+  "name": "rooms-reservation",
+  "productName": "Rooms Reservation",
+  "version": "0.1.0",
+  "engines": {
+    "node": "9.x"
+  },
+  "author": "Diego Fernández Barrera <bigomby@gmail.com>",
+  "scripts": {
+    "compile": "truffle compile",
+    "lint": "solium -d contracts",
+    "test": "truffle test"
+  },
+  "dependencies": {
+    "eslint": "^5.2.0",
+    "ethereumjs-wallet": "^0.6.1",
+    "openzeppelin-solidity": "1.11.0",
+    "truffle-wallet-provider": "0.0.5",
+    "web3": "1.0.0-beta.28"
+  },
+  "devDependencies": {
+    "truffle": "^4.1.11",
+    "truffle-contract": "^1.1.11"
+  },
+  "main": ".eslintrc.js",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bigomby/room-reservation-dapp.git"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Bigomby/room-reservation-dapp/issues"
+  },
+  "homepage": "https://github.com/Bigomby/room-reservation-dapp#readme",
+  "description": ""
+}

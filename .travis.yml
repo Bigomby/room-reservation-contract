@@ -1,0 +1,18 @@
+sudo: required
+
+language: node_js
+node_js:
+  - "node"
+
+services:
+  - docker
+
+install:
+  - npm install
+  - docker pull trufflesuite/ganache-cli:latest
+
+before_script:
+  - docker run -d -p 8545:8545 trufflesuite/ganache-cli:latest
+
+script:
+  - npm test
