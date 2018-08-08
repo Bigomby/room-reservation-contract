@@ -2,11 +2,13 @@ pragma solidity ^0.4.24;
 
 
 contract Reservation {
+  ////////////////////////////////////////////////////////////////////////////
+  // Config
+  ////////////////////////////////////////////////////////////////////////////
 
   uint64 private constant MAX_SLOTS = 10;
   uint256 private constant STORAGE_LOCATION_ARRAY = 0xDEADBEEF;
   uint256 private constant GAS_REFUNDED_PER_GASTOKEN = 29520;
-
 
   ////////////////////////////////////////////////////////////////////////////
   // Types
@@ -47,6 +49,11 @@ contract Reservation {
   uint64 public maxDays;
 
   /**
+  * Amount of total GasToken minted
+  */
+  uint256 public gasTokenMinted = 0;
+
+  /**
    * 30 GWei
    */
   uint256 public costPerGasUnit = 30 * 10**9;
@@ -62,8 +69,10 @@ contract Reservation {
    */
   address private owner;
 
-  uint256 public gasTokenSupply = 0;
-  uint256 public gasTokensStartIdx = STORAGE_LOCATION_ARRAY;
+  /**
+   * Start address of GasTokens array
+   */
+  uint256 private gasTokensStartIdx = STORAGE_LOCATION_ARRAY;
 
   ////////////////////////////////////////////////////////////////////////////
   // Events
@@ -121,9 +130,7 @@ contract Reservation {
    * @param   _roomId ID of the room
    * @param   _data   Data to store
    */
-  function updateSlots(uint64 _roomId, bytes16[MAX_SLOTS] _data) external
-      noEmptyRoom(_roomId) onlyOwner
-  {
+  function updateSlots(uint64 _roomId, bytes16[MAX_SLOTS] _data) external noEmptyRoom(_roomId) onlyOwner {
     for (uint64 i = 0; i < MAX_SLOTS; i++) {
       setSlotData(_roomId, i, _data[i]);
       if (_data[i].length > 0) {
@@ -162,9 +169,7 @@ contract Reservation {
    * @param   _time         Day to reserve in unix epoch format. Can be any
    *                        second of the day.
    */
-  function reserve(uint64 _roomId, uint64 _slotIdx, uint64 _time) public
-      noEmptyRoom(_roomId)
-  {
+  function reserve(uint64 _roomId, uint64 _slotIdx, uint64 _time) public noEmptyRoom(_roomId) {
     uint64 reservationDay = getDay(_time);
     reserveInternal(_roomId, _slotIdx, reservationDay);
     mintGasToken(reservationDay, _slotIdx, _roomId);
@@ -184,9 +189,7 @@ contract Reservation {
    * @param   _time         Day to reserve in unix epoch format. Can be any
    *                        second of the day.
    */
-  function cancel(uint64 _roomId, uint64 _slotIdx, uint64 _time) external
-      noEmptyRoom(_roomId)
-  {
+  function cancel(uint64 _roomId, uint64 _slotIdx, uint64 _time) external noEmptyRoom(_roomId) {
     uint64 reservationDay = getDay(_time);
     uint64 currentDay = getDay(block.timestamp);
     require(
@@ -257,9 +260,7 @@ contract Reservation {
   * @param   _slotIdx Index of the slot to update
   * @param   _data    Data to store
   */
-  function setSlotData(uint64 _roomId, uint64 _slotIdx, bytes16 _data) public
-      noEmptyRoom(_roomId) onlyOwner
-  {
+  function setSlotData(uint64 _roomId, uint64 _slotIdx, bytes16 _data) public noEmptyRoom(_roomId) onlyOwner {
     require(_slotIdx < MAX_SLOTS, "Invalid slot index");
 
     rooms[_roomId].slots[_slotIdx].data = _data;
@@ -274,9 +275,7 @@ contract Reservation {
   * @param   _slotIdx Index of the slot to update
   * @param   _status  Set to false for disable reservations
   */
-  function setSlotStatus(uint64 _roomId, uint64 _slotIdx, bool _status) public
-      noEmptyRoom(_roomId) onlyOwner
-  {
+  function setSlotStatus(uint64 _roomId, uint64 _slotIdx, bool _status) public noEmptyRoom(_roomId) onlyOwner {
     require(_slotIdx < MAX_SLOTS, "Invalid slot index");
 
     rooms[_roomId].slots[_slotIdx].enabled = _status;
@@ -290,7 +289,7 @@ contract Reservation {
     uint64 slotIdx;
     uint64 roomId;
 
-    require(_amount <= gasTokenSupply, "Not enough gasTokens available");
+    require(_amount <= gasTokenMinted, "Not enough gasTokens available");
 
     // Cost to consume _amount of gas tokens
     uint256 cost = getFreeStorageCost(_amount);
@@ -299,8 +298,8 @@ contract Reservation {
     require(msg.value >= cost, "Insufficient funds to pay for the gasTokens");
 
     // Clear memory locations in interval [l, r] for gasTokens array
-    uint256 left = gasTokensStartIdx + gasTokenSupply - _amount;
-    uint256 right = gasTokensStartIdx + gasTokenSupply;
+    uint256 left = gasTokensStartIdx + gasTokenMinted - _amount;
+    uint256 right = gasTokensStartIdx + gasTokenMinted;
 
     // Empty storage
     for (uint256 i = left; i < right; i++) {
@@ -320,7 +319,20 @@ contract Reservation {
       msg.sender.transfer(msg.value - cost);
     }
 
-    gasTokenSupply -= _amount;
+    gasTokenMinted -= _amount;
+  }
+
+  function getAvailableGasTokens() public view returns (uint256 availableGasTokens) {
+    uint64 currentDay = getDay(block.timestamp);
+    uint64 tstamp;
+
+    availableGasTokens = 0;
+    (tstamp,,) = loadPacked(gasTokensStartIdx);
+
+    while (tstamp < currentDay) {
+      availableGasTokens++;
+      (tstamp,,) = loadPacked(gasTokensStartIdx);
+    }
   }
 
   ////////////////////////////////////////////////////////////////////////////
@@ -339,9 +351,9 @@ contract Reservation {
   }
 
   function mintGasToken(uint64 _timestamp, uint64 _slotIdx, uint64 _roomId) private {
-    uint256 storageLocation = gasTokensStartIdx + gasTokenSupply;
+    uint256 storageLocation = gasTokensStartIdx + gasTokenMinted;
     storePacked(storageLocation, _timestamp, _slotIdx, _roomId);
-    gasTokenSupply++;
+    gasTokenMinted++;
   }
 
   /**
